@@ -1,0 +1,7 @@
+#!/bin/bash
+#BATCH --time=12:00:00
+
+module load python/3.5.2
+python pwgc_to_ulm.py -i pwgc -o ulm
+python convert_ulm_to_lstm_format.py
+

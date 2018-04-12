@@ -2,7 +2,7 @@
 
 ```
 bash install.sh
-python pwhc_to_ulm.py -i pwgc -o ulm
+python pwgc_to_ulm.py -i pwgc -o ulm
 python convert_ulm_to_lstm_format.py
 ```
 

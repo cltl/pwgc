@@ -322,7 +322,7 @@ if __name__ == '__main__':
 
     for level, d in [('synset', synset2instance_id),
                      ('sensekey', sensekey2instance_id)]:
-        output_path = os.path.join(args.output_folder, f'{level}.bin')
+        output_path = os.path.join(args.output_folder, level + '.bin')
 
         with open(output_path, 'wb') as outfile:
             pickle.dump(d, outfile)
