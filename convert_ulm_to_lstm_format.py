@@ -38,9 +38,6 @@ with open(output_path, 'w') as outfile:
                                                                    sentence_pos,
                                                                    annotations):
 
-            if training_example[-1] == ';':
-                training_example = training_example[:-1]
-
             outfile.write(training_example + '\n')
             count += 1
 

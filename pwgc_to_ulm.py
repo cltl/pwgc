@@ -4,8 +4,9 @@ import os
 import pickle
 from lxml import etree
 from nltk.corpus import wordnet as wn
-from collections import defaultdict, Counter
+from collections import defaultdict
 from copy import deepcopy
+import string
 
 from my_data_classes import Ctoken, Cinstance, Clexelt
 from sensekey_utils import add_sense_info_to_clexelt, load_mapping_sensekey2offset
@@ -154,6 +155,11 @@ def process_node(this_root_node, this_id):
         elif child_node.tag == 'aux':
             #Auxiliar information, do nothing
             pass
+
+    if list_of_tokens:
+        if list_of_tokens[-1].text == ';':
+            list_of_tokens = list_of_tokens[:-1]
+
     return list_of_tokens, sense_keys_for_token_id, type_tag_for_token_id
         
 def generate_instances(this_id, list_tokens, sense_keys_for_token_id, type_tag_for_token_id, data_lexelt, my_wn_reader):
@@ -219,8 +225,122 @@ def process_file(this_file, my_wn_reader, data_lexelt):
             list_of_tokens, sense_keys_for_token_id, type_tag_for_token_id = process_node(example_node, example_node.get('id'))
             generate_instances(example_node.get('id'), list_of_tokens, sense_keys_for_token_id, type_tag_for_token_id, data_lexelt, my_wn_reader)
   
-  
-  
+
+
+def instances_with_all_annotations(the_data_lexelt, sensekey2offset):
+    """
+    create dictionary of instances in which all annotations for all tokens
+    of an instances are stored
+
+    :param dict the_data_lexelt: mapping lemma -> my_data_classes.Clexelt
+
+    :rtype: tuple
+    :return: total_lemmas, total_instances, instance_id2instance
+    """
+    for item_key, lexelt in data_lexelt.items():
+
+        # First we call to add_sense_info_to_clexelt to create all the sensekey related info
+
+        if len(lexelt) > 0:
+            # First we call to add_sense_info_to_clexelt to create all the senskey related info
+            # We do not need to assign the return value to a variable, as the object is passed by reference
+            # and it's modified already
+
+            # print('\tLexical item: %s' % item_key, file=sys.stderr)
+
+            add_sense_info_to_clexelt(lexelt, my_wn_reader, debug=False)
+
+            for instance in lexelt.instances:
+
+                annotation_id = instance.id
+                the_instance_id, token_id = annotation_id.rsplit('_', 1)
+
+                if the_instance_id in instance_id2instance:
+                    # retrieve instance that will contain annotations for all annotations in sentence
+                    the_instance = instance_id2instance[the_instance_id]
+                else:
+                    the_instance = deepcopy(instance)
+                    instance_id2instance[the_instance_id] = the_instance
+
+                # add annotations to toke
+                tokens = the_instance.tokens
+                index = instance.index_head[0]
+
+                for lexkey in instance.lexkeys:
+
+                    found = False
+                    mapped_3_to_5 = lexkey.replace('%3', '%5')
+
+                    for key in [lexkey, mapped_3_to_5]:
+
+                        if key in sensekey2offset:
+                            synset_id = sensekey2offset[key]
+
+                            tokens[index].lexkeys.add(key)
+                            tokens[index].synsets.add(synset_id)
+
+                            found = True
+                            break
+
+                    if not found:
+                        print(lexkey, 'could not be mapped to synset id')
+
+    return instance_id2instance
+
+
+def split_instances_on_semicolon(the_instances):
+    """
+    split instances up on semicolon
+    but split up if there are semicolons in the instance
+    e.g.
+    able to swim ; able to run
+    will become two instances
+
+    :param dict the_instances: mapping identifier -> my_data_classes.Cinstance
+
+    :rtype: dict
+    :return: identifier -> my_data_classes.Cinstance
+    """
+    splitted_instances = dict()
+
+    for instance_id, the_instance in the_instances.items():
+
+        sent = [token.text for token in the_instance.tokens]
+        if ';' not in sent:
+            splitted_instances[instance_id] = the_instance
+        else:
+            token_ids = {token.token_id for token in the_instance.tokens
+                         if token.text != ';'}
+            token_ids_added = set()
+
+            anchors = [-1]
+            semi_colons = [index
+                           for index, token in enumerate(the_instance.tokens)
+                           if token.text == ";"]
+            anchors.extend(semi_colons)
+            anchors.append(10000)
+
+            for suffix, start, end in zip(string.ascii_lowercase,
+                                          anchors,
+                                          anchors[1:]):
+                part = the_instance.tokens[start + 1: end]
+
+                new_instance = deepcopy(the_instance)
+                new_instance.id = '%s_%s' % (new_instance.id, suffix)
+                new_instance.tokens = part
+
+                added = {token.token_id for token in part}
+                token_ids_added.update(added)
+
+                part_sent = [token.text for token in part]
+                assert ';' not in part_sent, part_sent
+
+                if len(part) >= 2:
+                    splitted_instances[new_instance.id] = new_instance
+
+            assert token_ids_added == token_ids, token_ids - token_ids_added
+
+    return splitted_instances
 
 
 if __name__ == '__main__':
@@ -258,59 +378,10 @@ if __name__ == '__main__':
     sensekey2offset = load_mapping_sensekey2offset(path_to_wn_index_sense,
                                                    '30')
 
+    instance_id2instance = instances_with_all_annotations(data_lexelt,
+                                                          sensekey2offset)
 
-
-    for item_key, lexelt in data_lexelt.items():
-        
-        # First we call to add_sense_info_to_clexelt to create all the sensekey related info
-        
-        if len(lexelt) > 0:
-            # First we call to add_sense_info_to_clexelt to create all the senskey related info
-            # We do not need to assign the return value to a variable, as the object is passed by reference
-            # and it's modified already 
-
-
-            #print('\tLexical item: %s' % item_key, file=sys.stderr)
-
-            add_sense_info_to_clexelt(lexelt, my_wn_reader, debug=False)
-            
-
-            total_lemmas += 1
-            item_key = item_key.replace('/','_')
-            total_instances += len(lexelt)
-
-
-            for instance in lexelt.instances:
-
-                annotation_id = instance.id
-                the_instance_id, token_id = annotation_id.rsplit('_', 1)
-
-                if the_instance_id in instance_id2instance:
-                    # retrieve instance that will contain annotations for all annotations in sentence
-                    the_instance = instance_id2instance[the_instance_id]
-                else:
-                    the_instance = deepcopy(instance)
-                    instance_id2instance[the_instance_id] = the_instance
-
-                # add annotations to toke
-                tokens = the_instance.tokens
-                index = instance.index_head[0]
-
-                for lexkey in instance.lexkeys:
-
-                    if lexkey in sensekey2offset:
-                        synset_id = sensekey2offset[lexkey]
-
-                        tokens[index].lexkeys.add(lexkey)
-                        tokens[index].synsets.add(synset_id)
-
-                        sensekey2instance_id[lexkey].add(the_instance_id)
-                        synset2instance_id[synset_id].add(the_instance_id)
-
-
-                    else:
-                        print(lexkey, 'no mapping found to synset id')
-
+    splitted_instances = split_instances_on_semicolon(instance_id2instance)
 
 
 
@@ -320,14 +391,8 @@ if __name__ == '__main__':
     pickle.dump(instance_id2instance, fd_bin, protocol=3)
     fd_bin.close()
 
-    for level, d in [('synset', synset2instance_id),
-                     ('sensekey', sensekey2instance_id)]:
-        output_path = os.path.join(args.output_folder, level + '.bin')
-
-        with open(output_path, 'wb') as outfile:
-            pickle.dump(d, outfile)
-
 
 
     print('Total number of lemma.pos (unique): %d' % total_lemmas)
-    print('Total number of instances: %d' % total_instances)
+    print('Total number of instances: %d' % len(instance_id2instance))
+    print('Total number of splitted instances: %s' % len(splitted_instances))
