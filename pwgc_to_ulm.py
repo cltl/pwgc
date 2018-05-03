@@ -253,14 +253,25 @@ def instances_with_all_annotations(the_data_lexelt, sensekey2offset):
             for instance in lexelt.instances:
 
                 # clean tokens, remove underscore before or after token
-                for token in instance.tokens:
-                    token.text = token.text.strip('_')
+
+                for index, token in enumerate(instance.tokens):
                     token.text = token.text.replace('\n     ', '')
+                    token.text = token.text.strip('_')
 
                     assert not token.text.startswith('_')
                     assert not token.text.endswith('_')
                     assert '\n' not in token.text
-                    assert ' ' not in token.text, 'space in %s' % token.text
+
+                    if token.text == '':
+                        if token.lemma:
+                            token.text = token.lemma
+                        else:
+                            token.text = '-'
+
+                instance.index_head[0] = instance.index_head[0] 
+
+
+                assert all([token.text != '' for token in instance.tokens]), 'space in %s' % the_instance_id
 
                 annotation_id = instance.id
                 the_instance_id, token_id = annotation_id.rsplit('_', 1)
@@ -272,7 +283,7 @@ def instances_with_all_annotations(the_data_lexelt, sensekey2offset):
                     the_instance = deepcopy(instance)
                     instance_id2instance[the_instance_id] = the_instance
 
-                # add annotations to toke
+                # add annotations to token
                 tokens = the_instance.tokens
                 index = instance.index_head[0]
 
@@ -294,6 +305,9 @@ def instances_with_all_annotations(the_data_lexelt, sensekey2offset):
 
                     if not found:
                         print(lexkey, 'could not be mapped to synset id')
+                
+
+
 
     return instance_id2instance
 
