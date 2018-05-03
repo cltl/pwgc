@@ -252,6 +252,16 @@ def instances_with_all_annotations(the_data_lexelt, sensekey2offset):
 
             for instance in lexelt.instances:
 
+                # clean tokens, remove underscore before or after token
+                for token in instance.tokens:
+                    token.text = token.text.strip('_')
+                    token.text = token.text.replace('\n     ', '')
+
+                    assert not token.text.startswith('_')
+                    assert not token.text.endswith('_')
+                    assert '\n' not in token.text
+                    assert ' ' not in token.text, 'space in %s' % token.text
+
                 annotation_id = instance.id
                 the_instance_id, token_id = annotation_id.rsplit('_', 1)
 
@@ -388,7 +398,7 @@ if __name__ == '__main__':
     # Save the instance object
     output_bin = os.path.join(args.output_folder, 'instances.bin')
     fd_bin = open(output_bin,'wb')
-    pickle.dump(instance_id2instance, fd_bin, protocol=3)
+    pickle.dump(splitted_instances, fd_bin, protocol=3)
     fd_bin.close()
 
 
