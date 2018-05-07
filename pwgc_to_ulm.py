@@ -8,7 +8,7 @@ from collections import defaultdict
 from copy import deepcopy
 import string
 
-from my_data_classes import Ctoken, Cinstance, Clexelt
+from my_data_classes import Ctoken, Cinstance, Clexelt, Sentence
 from sensekey_utils import add_sense_info_to_clexelt, load_mapping_sensekey2offset
 
 __here__ = os.path.realpath(os.path.dirname(__file__))
@@ -237,7 +237,7 @@ def instances_with_all_annotations(the_data_lexelt, sensekey2offset):
     :rtype: tuple
     :return: total_lemmas, total_instances, instance_id2instance
     """
-    for item_key, lexelt in data_lexelt.items():
+    for item_key, lexelt in the_data_lexelt.items():
 
         # First we call to add_sense_info_to_clexelt to create all the sensekey related info
 
@@ -268,8 +268,6 @@ def instances_with_all_annotations(the_data_lexelt, sensekey2offset):
                         else:
                             token.text = '-'
 
-                instance.index_head[0] = instance.index_head[0] 
-
 
                 assert all([token.text != '' for token in instance.tokens]), 'space in %s' % the_instance_id
 
@@ -280,12 +278,14 @@ def instances_with_all_annotations(the_data_lexelt, sensekey2offset):
                     # retrieve instance that will contain annotations for all annotations in sentence
                     the_instance = instance_id2instance[the_instance_id]
                 else:
-                    the_instance = deepcopy(instance)
+                    the_instance = Sentence(instance.id, instance.tokens)
                     instance_id2instance[the_instance_id] = the_instance
 
                 # add annotations to token
                 tokens = the_instance.tokens
                 index = instance.index_head[0]
+
+                tokens[index].annotation_type = instance.annotation_type
 
                 for lexkey in instance.lexkeys:
 
@@ -306,9 +306,6 @@ def instances_with_all_annotations(the_data_lexelt, sensekey2offset):
                     if not found:
                         print(lexkey, 'could not be mapped to synset id')
                 
-
-
-
     return instance_id2instance
 
 
@@ -367,6 +364,49 @@ def split_instances_on_semicolon(the_instances):
     return splitted_instances
 
 
+def index_meanings2sentences(instances,
+                             debug=0):
+    """
+    load index of meaning (sensekey | synset) -> my_data_classes.Sentence objects
+
+    :param dict instances: mapping id_ -> my_data_classes.Sentence instances
+
+    :rtype: tuple
+    :return: (sensekey -> instance ids, synset -> instance ids)
+    """
+    sensekey2instance_ids = defaultdict(set)
+    synset2instance_ids = defaultdict(set)
+
+    failed_mappings = set()
+    for id_, instance_obj in instances.items():
+
+        for token in instance_obj.tokens:
+            assert len(token.synsets) <= len(token.lexkeys)
+
+            for lexkey in token.lexkeys:
+                sensekey2instance_ids[lexkey].add(id_)
+
+            for synset in token.synsets:
+                synset2instance_ids[synset].add(id_)
+
+    stats = dict()
+    for label, d in [('sensekey', sensekey2instance_ids),
+                     ('synset', synset2instance_ids)]:
+        counts = [len(value)
+                  for value in d.values()]
+
+        avg = round(sum(counts) / len(counts), 2)
+        stats[label] = avg
+
+    if debug >= 1:
+        print('stats for sensekeys: #%s avg of %s' % (len(sensekey2instance_ids),
+                                                      stats['sensekey']))
+        print('stats for synsets: #%s avg of %s' % (len(synset2instance_ids),
+                                                    stats['synset']))
+
+    return sensekey2instance_ids, synset2instance_ids
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Converts WordNet gloss corpus to our intermediate ULM format')
     parser.add_argument('-v',  action='version', version='1.0')
@@ -379,9 +419,9 @@ if __name__ == '__main__':
 
 
     files = [('adj.xml','a'),
-             ('adv.xml','r'),
-             ('noun.xml','n'),
-             ('verb.xml','v')
+             #('adv.xml','r'),
+             #('noun.xml','n'),
+             #('verb.xml','v')
              ]
 
     for this_file, short_pos in files:
@@ -389,13 +429,10 @@ if __name__ == '__main__':
         print('Processing %s' % path_to_file)
         process_file(path_to_file, my_wn_reader, data_lexelt)
 
-
     print('Creating training data...', file=sys.stderr)
     total_instances = 0
     total_lemmas = 0
     instance_id2instance = dict()
-    sensekey2instance_id = defaultdict(set)
-    synset2instance_id = defaultdict(set)
 
     path_to_wn_dict_folder = str(wn._get_root())  # change this for other wn versions
     path_to_wn_index_sense = os.path.join(path_to_wn_dict_folder, 'index.sense')  # change this for other wn versions
@@ -407,15 +444,19 @@ if __name__ == '__main__':
 
     splitted_instances = split_instances_on_semicolon(instance_id2instance)
 
+    sensekey2instance_ids, synset2instance_ids = index_meanings2sentences(splitted_instances,
+                                                                          debug=1)
 
 
-    # Save the instance object
-    output_bin = os.path.join(args.output_folder, 'instances.bin')
-    fd_bin = open(output_bin,'wb')
-    pickle.dump(splitted_instances, fd_bin, protocol=3)
-    fd_bin.close()
+    for basename, output_bin in [('instances.bin', splitted_instances),
+                                 ('sensekey_index.bin', sensekey2instance_ids),
+                                 ('synset_index.bin', synset2instance_ids)]:
 
-
+        # Save the instance object
+        output_bin = os.path.join(args.output_folder, basename)
+        fd_bin = open(output_bin,'wb')
+        pickle.dump(output_bin, fd_bin, protocol=3)
+        fd_bin.close()
 
     print('Total number of lemma.pos (unique): %d' % total_lemmas)
     print('Total number of instances: %d' % len(instance_id2instance))

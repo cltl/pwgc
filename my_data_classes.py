@@ -60,9 +60,18 @@ class Csense:
     def __str__(self):
         s = 'Num_sense: %s\tLexkey: %s\tSynset: %s' % (self.num_sense, self.lexkey, self.synset_offset)
         return s
-    
-    
-    
+
+
+class Sentence:
+    """
+    representation of sentence
+
+    :ivar list tokens: list of Ctokens instances
+    """
+    def __init__(self, id, tokens):
+        self.tokens = tokens
+        self.id = id
+
     
 class Cinstance:
     def __init__(self):
