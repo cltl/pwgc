@@ -418,8 +418,8 @@ if __name__ == '__main__':
     my_wn_reader = wn
 
 
-    files = [('adj.xml','a'),
-             #('adv.xml','r'),
+    files = [#('adj.xml','a'),
+             ('adv.xml','r'),
              #('noun.xml','n'),
              #('verb.xml','v')
              ]
@@ -448,16 +448,14 @@ if __name__ == '__main__':
                                                                           debug=1)
 
 
-    for basename, output_bin in [('instances.bin', splitted_instances),
+    for basename, info in [('instances.bin', splitted_instances),
                                  ('sensekey_index.bin', sensekey2instance_ids),
                                  ('synset_index.bin', synset2instance_ids)]:
 
         # Save the instance object
-        output_bin = os.path.join(args.output_folder, basename)
-        fd_bin = open(output_bin,'wb')
-        pickle.dump(output_bin, fd_bin, protocol=3)
-        fd_bin.close()
+        output_path = os.path.join(args.output_folder, basename)
+        with open(output_path, 'wb') as outfile:
+            pickle.dump(info, outfile, protocol=3)
 
-    print('Total number of lemma.pos (unique): %d' % total_lemmas)
     print('Total number of instances: %d' % len(instance_id2instance))
     print('Total number of splitted instances: %s' % len(splitted_instances))

@@ -6,6 +6,8 @@ import sys
 from lxml import html, etree
 from xml.sax.saxutils import escape
 
+import utils
+
 
 class Ctoken:
     def __init__(self, token_id):
@@ -71,6 +73,47 @@ class Sentence:
     def __init__(self, id, tokens):
         self.tokens = tokens
         self.id = id
+
+
+    def sent_in_lstm_format(self, level):
+        """
+        generate lstm format training examples
+
+        :param str level: sensekey | synset
+
+        see utils.generate_training_instances_v2 for more information
+
+        :rtype: generator
+        :return: generator of training examples
+        """
+        sentence_tokens = []
+        sentence_lemmas = []
+        sentence_pos = []
+        annotations = []
+
+
+        for token in self.tokens:
+
+            sentence_tokens.append(token.text)
+            sentence_lemmas.append(token.lemma)
+            sentence_pos.append(token.pos)
+
+            if level == 'sensekey':
+                annotations.append(list(token.lexkeys))
+            elif level == 'synset':
+                annotations.append(list(token.synsets))
+
+        for (target_lemma,
+             target_pos,
+             token_annotation,
+             sentence_tokens,
+             training_example,
+             target_index) in utils.generate_training_instances_v2(sentence_tokens,
+                                                                   sentence_lemmas,
+                                                                   sentence_pos,
+                                                                   annotations):
+
+            yield training_example
 
     
 class Cinstance:
