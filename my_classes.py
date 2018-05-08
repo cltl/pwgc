@@ -44,6 +44,10 @@ wordnet_tagset = {'n', 'v', 'r', 'a'}
 
 pwgc_pos2wordnet = {'NN': 'n', 'VB': 'v', 'JJ': 'a', 'R': 'r', 'J' : 'a'}
 
+universal2wordnet = {'NOUN' : 'n',
+                     'VERB' : 'v',
+                     'ADJ' : 'a',
+                     'ADV' : 'r'}
 
 def treebank2wordnet(treebank_pos):
     """
@@ -111,6 +115,12 @@ class Token:
                 self.pos = pwgc_pos2wordnet[treebank_pos]
             elif treebank_pos in treebank_tagset:
                 self.pos = treebank2wordnet(treebank_pos)
+            else:
+                self.pos = ''
+
+        if universal_pos:
+            if universal_pos in universal2wordnet:
+                self.pos = universal2wordnet[universal_pos]
             else:
                 self.pos = ''
 
