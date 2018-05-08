@@ -181,7 +181,7 @@ class Sentence:
         for token_obj in self.token_objs:
 
             if token_obj.instance_id == instance_id:
-                tokens.append(f'***{token_obj.token}***')
+                tokens.append('***%s***' % token_obj.token)
             else:
                 tokens.append(token_obj.token)
 

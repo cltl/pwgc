@@ -433,10 +433,10 @@ if __name__ == '__main__':
     my_wn_reader = wn
 
 
-    files = [#('adj.xml','a'),
+    files = [('adj.xml','a'),
              ('adv.xml','r'),
-             #('noun.xml','n'),
-             #('verb.xml','v')
+             ('noun.xml','n'),
+             ('verb.xml','v')
              ]
 
     for this_file, short_pos in files:
