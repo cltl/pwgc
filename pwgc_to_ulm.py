@@ -8,7 +8,8 @@ from collections import defaultdict
 from copy import deepcopy
 import string
 
-from my_data_classes import Ctoken, Cinstance, Clexelt, Sentence
+from my_data_classes import Ctoken, Cinstance, Clexelt
+from my_classes import Sentence, Token
 from sensekey_utils import add_sense_info_to_clexelt, load_mapping_sensekey2offset
 
 __here__ = os.path.realpath(os.path.dirname(__file__))
@@ -278,7 +279,20 @@ def instances_with_all_annotations(the_data_lexelt, sensekey2offset):
                     # retrieve instance that will contain annotations for all annotations in sentence
                     the_instance = instance_id2instance[the_instance_id]
                 else:
-                    the_instance = Sentence(instance.id, instance.tokens)
+
+                    the_tokens = []
+
+                    for token in instance.tokens:
+
+                        new_token_obj = Token(token_id=token.token_id,
+                                              text=token.text,
+                                              lemma=token.lemma,
+                                              lexkeys=set(),
+                                              synsets=set(),
+                                              treebank_pos=token.pos)
+                        the_tokens.append(new_token_obj)
+
+                    the_instance = Sentence(instance.id, the_tokens)
                     instance_id2instance[the_instance_id] = the_instance
 
                 # add annotations to token
@@ -358,6 +372,7 @@ def split_instances_on_semicolon(the_instances):
 
                 if len(part) >= 2:
                     splitted_instances[new_instance.id] = new_instance
+
 
             assert token_ids_added == token_ids, token_ids - token_ids_added
 
@@ -449,8 +464,8 @@ if __name__ == '__main__':
 
 
     for basename, info in [('instances.bin', splitted_instances),
-                                 ('sensekey_index.bin', sensekey2instance_ids),
-                                 ('synset_index.bin', synset2instance_ids)]:
+                           ('sensekey_index.bin', sensekey2instance_ids),
+                           ('synset_index.bin', synset2instance_ids)]:
 
         # Save the instance object
         output_path = os.path.join(args.output_folder, basename)
